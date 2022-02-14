@@ -31,6 +31,7 @@ pipeline{
       }
     }
       stage("Deploy app using compose") {
+         agent { label 'master' }
       steps{
        script {
                     SSH =  'ssh -tt -i /home/ubuntu/demo.pem ubuntu@172.31.1.49'
