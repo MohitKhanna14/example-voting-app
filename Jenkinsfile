@@ -1,53 +1,54 @@
-pipeline{
-   agent {label 'worker'}
-   
+pipeline {
+    agent {
+      label 'worker'
+    }
+
+    options {
+            buildDiscarder(logRotator(numToKeepStr: '10'))
+            disableConcurrentBuilds()
+            timeout(time: 1, unit: 'HOURS')
+    }
     environment {
-    DOCKER_HUB_CREDS = credentials('dockerhub')
-   }
-  stages{
-     
-    stage("checkout voting app"){
-      
+            AWS_DEFAULT_REGION = 'us-east-1'
+            SERVICE_NAME = 'vote'
+            TASK_FAMILY = 'vote-fargate'
+            ECS_CLUSTER = 'vote-app'
+    }
+    stages {
+      stage('Git Checkout') {
         steps {
           checkout scm
         }
-       
-         
-      
-    }
-    stage("Build vote app"){
-      steps{
-          dir("${env.WORKSPACE}/vote"){
-           sh "pwd"
-           sh "docker login -u $DOCKER_HUB_CREDS_USR -p $DOCKER_HUB_CREDS_PSW" 
-           sh "docker build -t $DOCKER_HUB_CREDS_USR/voteapp:latest ."
-           
-             
-           
-           sh "docker push mohit1412/voteapp:latest"
-       }
-       
-         
       }
-    }
-      stage("Deploy app using compose") {
-         agent { label 'master' }
-      steps{
-       script {
-                    SSH =  'ssh -tt  -o StrictHostKeyChecking=no -i /home/ubuntu/demo.pem ubuntu@172.31.1.49'
-                    sh """$SSH 'cd /home/ubuntu/workspace/voteapp; ls;sed -i "s+build: ./vote+image: mohit1412/voteapp:latest+g" docker-compose.yml;  docker-compose -f docker-compose.yml up -d;'"""
-              }
-           }
-         }
-  }
-   
-   post { 
-        always { 
-            cleanWs()
+        stage('Build Docker Image') {
+            steps {
+                sh "eval \$(aws ecr get-login --no-include-email --region us-east-1) && sleep 2"
+                sh "cd vote && docker build . -t 635145294553.dkr.ecr.us-east-1.amazonaws.com/vote:\${BUILD_NUMBER}"
+                sh "docker push 635145294553.dkr.ecr.us-east-1.amazonaws.com/vote:\${BUILD_NUMBER}"
+            }
+        }
+        stage('Deploy in ECS') {
+            steps {
+
+                script {
+                    sh'''
+                    ECR_IMAGE="635145294553.dkr.ecr.us-east-1.amazonaws.com/vote:${BUILD_NUMBER}"
+                    TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition "$TASK_FAMILY" --region "$AWS_DEFAULT_REGION")
+                    NEW_TASK_DEFINTIION=$(echo $TASK_DEFINITION | jq --arg IMAGE "$ECR_IMAGE" '.taskDefinition | .containerDefinitions[0].image = $IMAGE | del(.taskDefinitionArn) | del(.revision) | del(.status) | del(.requiresAttributes) | del(.compatibilities)')
+                    NEW_TASK_INFO=$(aws ecs register-task-definition --region "$AWS_DEFAULT_REGION" --cli-input-json "$NEW_TASK_DEFINTIION")
+                    NEW_REVISION=$(echo $NEW_TASK_INFO | jq '.taskDefinition.revision')
+                    aws ecs update-service --cluster ${ECS_CLUSTER} \
+                                        --service ${SERVICE_NAME} \
+                                        --task-definition ${TASK_FAMILY}:${NEW_REVISION}'''
+                }
+            }
         }
     }
-    
-    
-  
-   
+
+    post {
+        always {
+            deleteDir()
+            sh "docker rmi 635145294553.dkr.ecr.us-east-1.amazonaws.com/vote:\${BUILD_NUMBER}"
+            }
+        }
 }
