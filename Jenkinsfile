@@ -35,7 +35,7 @@ pipeline{
       steps{
        script {
                     SSH =  'ssh -tt  -o StrictHostKeyChecking=no -i /home/ubuntu/demo.pem ubuntu@172.31.1.49'
-                    sh "$SSH 'cd /home/ubuntu/workspace/voteapp; sed -i 's+build: ./vote+image: mohit1412/voteapp:latest' docker-compose.yml; docker-compose -f docker-compose.yml up -d;'"
+                    sh "$SSH 'cd /home/ubuntu/workspace/voteapp; docker-compose -f docker-compose.yml up -d;'"
               }
            }
          }
