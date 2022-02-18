@@ -22,7 +22,7 @@ pipeline {
       }
         stage('Build Docker Image') {
             steps {
-                slackSend "Build Started - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
+                slackSend color: "#439FE0", message: "Build Started - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
                 sh "eval \$(aws ecr get-login --no-include-email --region us-east-1) && sleep 2"
                 sh "cd vote && docker build . -t 462273782981.dkr.ecr.us-east-1.amazonaws.com/vote:\${BUILD_NUMBER}"
                 sh "docker push 462273782981.dkr.ecr.us-east-1.amazonaws.com/vote:\${BUILD_NUMBER}"
