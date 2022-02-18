@@ -51,9 +51,9 @@ pipeline {
             deleteDir()
             sh "docker rmi 462273782981.dkr.ecr.us-east-1.amazonaws.com/vote:\${BUILD_NUMBER}"
             }
-        failure {
+      failure {
         slackSend failOnError:true message:"Build failed  - ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
-        }
-        }
+    }
+        
         }
 }
