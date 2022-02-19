@@ -41,6 +41,7 @@ pipeline {
                     aws ecs update-service --cluster ${ECS_CLUSTER} \
                                         --service ${SERVICE_NAME} \
                                         --task-definition ${TASK_FAMILY}:${NEW_REVISION}'''
+                    sh """ DRAINING_COUNT=$(aws ecs list-container-instances --cluster vote-app --region us-east-1  --status DRAINING | jq '.[] | length') """
                 }
             }
         }
